@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Auction Viewer - Live Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <header class="header">
+    <div>
+      <h1>🏏 Auction Live Viewer</h1>
+      <p id="headerTournament">Tournament: Loading...</p>
+    </div>
+    <span class="live-badge" id="liveBadge">● LIVE</span>
+  </header>
+
+  <div class="auction-layout">
+    <!-- Left Sidebar: Teams (Scrollable) -->
+    <aside class="sidebar">
+      <div class="card sticky-card">
+        <div class="card-head">
+          <h2>Teams</h2>
+          <span class="badge-muted" id="teamCountBadge">0</span>
+        </div>
+        <div id="teamsDashboard" class="teams-scroll"></div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Summary Stats -->
+      <div class="card">
+        <div class="summary-grid">
+          <div class="s-box"><div class="s-lbl">Base Price</div><div class="s-val" id="sBase">0</div></div>
+          <div class="s-box"><div class="s-lbl">Purse</div><div class="s-val" id="sPurse">0</div></div>
+          <div class="s-box"><div class="s-lbl">Round</div><div class="s-val" id="sRound">1</div></div>
+          <div class="s-box"><div class="s-lbl">Players</div><div class="s-val" id="sPlayers">0</div></div>
+        </div>
+      </div>
+
+      <!-- Live Player Display -->
+      <div class="card current-player-card">
+        <div class="card-head">
+          <h2>🎯 Current Player</h2>
+          <span class="badge-live" id="currentBadge">Awaiting</span>
+        </div>
+        <div id="currentPlayerArea" class="player-box">
+          <div class="player-placeholder">👤</div>
+          <h3 class="player-big-name">Waiting for Admin...</h3>
+        </div>
+      </div>
+
+      <!-- Live Activity Feed -->
+      <div class="card">
+        <div class="card-head">
+          <h2>📝 Live Activity</h2>
+          <span class="badge-muted" id="feedCountBadge">0</span>
+        </div>
+        <ul class="feed-list" id="feedList">
+          <li class="muted-li">Connecting to auction...</li>
+        </ul>
+      </div>
+
+      <!-- Full Player Table -->
+      <div class="card">
+        <div class="card-head">
+          <h2>👥 Player List</h2>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Photo</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Sold To</th>
+                <th>Price</th>
+              </tr>
+            </thead>
+            <tbody id="playersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+:root {
+  --bg: #060d1a;
+  --card: #111827;
+  --card2: #1f2937;
+  --border: rgba(255,255,255,0.08);
+  --text: #f3f4f6;
+  --muted: #9ca3af;
+  --accent: #fbbf24;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+
+body { background: var(--bg); color: var(--text); padding: 15px; }
+
+.container { max-width: 1400px; margin: 0 auto; }
+
+/* Header */
+.header {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--card); padding: 20px; border-radius: 15px;
+  border: 1px solid var(--border); margin-bottom: 20px;
+}
+
+.live-badge {
+  background: rgba(34,197,94,0.15); color: #4ade80;
+  padding: 6px 15px; border-radius: 20px; font-weight: bold; font-size: 13px;
+}
+
+/* Layout */
+.auction-layout { display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
+
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 15px; padding: 20px; margin-bottom: 20px;
+}
+
+.card-head { display: flex; justify-content: space-between; margin-bottom: 15px; }
+
+/* Teams Sidebar */
+.teams-scroll { display: grid; gap: 10px; max-height: 80vh; overflow-y: auto; }
+.team-card-viewer {
+  background: var(--card2); padding: 12px; border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.tm-row { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
+.tm-stat { font-size: 11px; text-align: center; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 5px; }
+.tm-stat b { display: block; font-size: 14px; color: var(--accent); }
+
+/* Current Player */
+.player-box { text-align: center; padding: 20px; background: rgba(255,255,255,0.02); border-radius: 15px; }
+.player-big-img { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; border: 4px solid var(--accent); margin-bottom: 15px; }
+.player-big-name { font-size: 32px; margin-bottom: 10px; }
+
+/* Summary Grid */
+.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.s-box { text-align: center; }
+.s-lbl { font-size: 12px; color: var(--muted); }
+.s-val { font-size: 20px; font-weight: bold; color: var(--accent); }
+
+/* Table */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 600px; }
+th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }
+.thumb-sm { width: 35px; height: 35px; border-radius: 50%; object-fit: cover; }
+
+/* Mobile Responsive */
+@media (max-width: 900px) {
+  .auction-layout { grid-template-columns: 1fr; }
+  .sidebar { order: 2; }
+  .main-content { order: 1; }
+  .summary-grid { grid-template-columns: 1fr 1fr; }
+}
