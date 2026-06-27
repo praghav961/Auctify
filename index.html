@@ -1,142 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Auction Viewer</title>
-  <meta name="theme-color" content="#081120" />
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Auctify|Live Dashboard|</title>
+  <meta name="theme-color" content="#020617">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app-shell">
-    <header class="header">
-      <div class="header-left">
-        <h1>🏏 Auction Viewer</h1>
-        <p id="headerTournament">Tournament: Loading...</p>
-      </div>
-      <div class="header-right">
+
+  <div class="tv-frame">
+    <div class="tv-inner">
+
+      <!-- HEADER -->
+      <header class="header">
+        <div class="brand">
+          <span class="brand-icon">🏏</span>
+          <div>
+            <h1 class="brand-name">AUCTION LIVE</h1>
+            <p id="headerTournament" class="brand-sub">Loading...</p>
+          </div>
+        </div>
         <span class="live-badge" id="liveBadge">● CONNECTING</span>
+      </header>
+
+      <!-- SCOREBOARD -->
+      <section class="card score-section">
+        <div class="card-head">
+          <h2 class="section-title">📊 SCOREBOARD</h2>
+        </div>
+        <div class="score-grid">
+          <div class="stat-tile"><span class="st-label">Teams</span><span class="st-value" id="sTeams">0</span></div>
+          <div class="stat-tile"><span class="st-label">Players</span><span class="st-value" id="sPlayers">0</span></div>
+          <div class="stat-tile"><span class="st-label">Per Team</span><span class="st-value" id="sPerTeam">0</span></div>
+          <div class="stat-tile accented"><span class="st-label">Base</span><span class="st-value" id="sBase">0</span></div>
+          <div class="stat-tile accented"><span class="st-label">Purse</span><span class="st-value" id="sPurse">0</span></div>
+          <div class="stat-tile"><span class="st-label">Round</span><span class="st-value" id="sRound">1</span></div>
+          <div class="stat-tile sold-tile"><span class="st-label">Sold</span><span class="st-value" id="sSold">0</span></div>
+          <div class="stat-tile unsold-tile"><span class="st-label">Unsold</span><span class="st-value" id="sUnsold">0</span></div>
+          <div class="stat-tile pending-tile"><span class="st-label">Pending</span><span class="st-value" id="sPending">0</span></div>
+        </div>
+      </section>
+
+      <!-- MAIN LAYOUT -->
+      <div class="main-layout">
+
+        <!-- SIDEBAR: TEAMS -->
+        <aside class="sidebar-panel">
+          <div class="card sticky-card">
+            <div class="card-head">
+              <h2 class="section-title">🏆 TEAMS</h2>
+              <span class="count-badge" id="teamCountBadge">0</span>
+            </div>
+            <div class="teams-scroll" id="teamsDashboard">
+              <div class="empty-note">Loading teams...</div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- CONTENT -->
+        <div class="content-panel">
+
+          <!-- CURRENT PLAYER -->
+          <div class="card player-stage-card">
+            <div class="card-head">
+              <h2 class="section-title">🎯 ON THE BLOCK</h2>
+              <span class="badge-live" id="currentBadge">AWAITING</span>
+            </div>
+            <div class="player-stage" id="currentPlayerArea">
+              <div class="player-placeholder-big">👤</div>
+              <h3 class="player-name-big">Waiting for admin...</h3>
+              <p class="player-desc">Live player will appear here.</p>
+            </div>
+          </div>
+
+          <!-- LIVE FEED -->
+          <div class="card">
+            <div class="card-head">
+              <h2 class="section-title">📝 LIVE FEED</h2>
+              <span class="count-badge" id="feedCountBadge">0</span>
+            </div>
+            <ul class="feed-list" id="feedList">
+              <li class="muted-li">Waiting for auction updates...</li>
+            </ul>
+          </div>
+
+          <!-- PLAYERS TABLE -->
+          <div class="card">
+            <div class="card-head">
+              <h2 class="section-title">👥 ALL PLAYERS</h2>
+              <span class="count-badge" id="playerTableBadge">0</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th></th>
+                    <th>Name</th>
+                    <th>Bat</th>
+                    <th>Bowl</th>
+                    <th>Role</th>
+                    <th>Team</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Rnd</th>
+                  </tr>
+                </thead>
+                <tbody id="playersTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
       </div>
-    </header>
-
-    <section class="summary-strip card">
-      <div class="card-head">
-        <h2>📊 Auction Summary</h2>
-      </div>
-
-      <div class="summary-grid">
-        <div class="s-box">
-          <div class="s-lbl">Teams</div>
-          <div class="s-val" id="sTeams">0</div>
-        </div>
-        <div class="s-box">
-          <div class="s-lbl">Players</div>
-          <div class="s-val" id="sPlayers">0</div>
-        </div>
-        <div class="s-box">
-          <div class="s-lbl">Per Team</div>
-          <div class="s-val" id="sPerTeam">0</div>
-        </div>
-        <div class="s-box">
-          <div class="s-lbl">Base Price</div>
-          <div class="s-val" id="sBase">0</div>
-        </div>
-        <div class="s-box">
-          <div class="s-lbl">Team Purse</div>
-          <div class="s-val" id="sPurse">0</div>
-        </div>
-        <div class="s-box">
-          <div class="s-lbl">Round</div>
-          <div class="s-val" id="sRound">1</div>
-        </div>
-        <div class="s-box sold-box">
-          <div class="s-lbl">Sold</div>
-          <div class="s-val" id="sSold">0</div>
-        </div>
-        <div class="s-box unsold-box">
-          <div class="s-lbl">Unsold</div>
-          <div class="s-val" id="sUnsold">0</div>
-        </div>
-        <div class="s-box pending-box">
-          <div class="s-lbl">Pending</div>
-          <div class="s-val" id="sPending">0</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="auction-layout">
-      <aside class="sidebar">
-        <div class="card sticky-card">
-          <div class="card-head">
-            <h2>🏆 Teams Dashboard</h2>
-            <span class="badge-muted" id="teamCountBadge">0 teams</span>
-          </div>
-          <div id="teamsDashboard" class="teams-scroll">
-            <p class="empty-note">Loading teams...</p>
-          </div>
-        </div>
-      </aside>
-
-      <main class="main-content">
-        <section class="card">
-          <div class="card-head">
-            <h2>🎯 Current Player</h2>
-            <span class="badge-live" id="currentBadge">Awaiting</span>
-          </div>
-
-          <div id="currentPlayerArea" class="player-box">
-            <div class="player-placeholder">👤</div>
-            <h3 class="player-big-name">Waiting for admin...</h3>
-            <p class="desc">Live player will appear here.</p>
-          </div>
-        </section>
-
-        <section class="card">
-          <div class="card-head">
-            <h2>📝 Live Activity</h2>
-            <span class="badge-muted" id="feedCountBadge">0</span>
-          </div>
-          <ul class="feed-list" id="feedList">
-            <li class="muted-li">Waiting for auction updates...</li>
-          </ul>
-        </section>
-
-        <section class="card">
-          <div class="card-head">
-            <h2>👥 All Players</h2>
-            <span class="badge-muted" id="playerTableBadge">0</span>
-          </div>
-
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Photo</th>
-                  <th>Name</th>
-                  <th>Batting</th>
-                  <th>Bowling</th>
-                  <th>Role</th>
-                  <th>Team</th>
-                  <th>Bid</th>
-                  <th>Status</th>
-                  <th>Round</th>
-                </tr>
-              </thead>
-              <tbody id="playersTableBody"></tbody>
-            </table>
-          </div>
-        </section>
-      </main>
-    </section>
+    </div>
   </div>
 
-  <div id="resultOverlay" class="result-overlay" aria-hidden="true">
+  <!-- SOLD / UNSOLD OVERLAY -->
+  <div id="resultOverlay" class="result-overlay">
     <div class="result-card" id="resultCard">
-      <div class="result-badge" id="overlayStatus">SOLD</div>
-      <div class="result-player" id="overlayPlayerName">Player Name</div>
-      <div class="result-meta" id="overlayMeta">Team Name • ₹ 0</div>
+      <div class="result-stripe" id="overlayStripe"></div>
+      <div class="result-content">
+        <div class="result-badge" id="overlayBadge">SOLD</div>
+        <div class="result-player" id="overlayPlayer">Player Name</div>
+        <div class="result-meta" id="overlayMeta">Team • ₹ 0</div>
+      </div>
     </div>
+    <div class="confetti-wrap" id="confettiWrap"></div>
   </div>
 
   <script type="module" src="app.js"></script>
