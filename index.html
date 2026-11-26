@@ -12,6 +12,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --bg: #09090b; 
@@ -378,6 +379,9 @@
       <p class="text-[var(--text-muted)] text-sm mb-4 font-medium">All players share base price: <strong id="basePriceLabel" class="text-[var(--accent-gold)]">0</strong>.</p>
       <div class="flex flex-wrap gap-2 mb-5">
         <button class="bg-[var(--surface-hover)] border border-[var(--border)] hover:bg-[var(--border)] text-[var(--text-main)] px-4 py-2 rounded-xl font-bold text-sm w-full sm:w-auto transition-colors" onclick="addPlayerForm()">➕ Add Player</button>
+        <input type="file" id="playerExcelInput" accept=".xlsx,.xls,.csv" class="hidden" onchange="importPlayersFromExcel(this)">
+        <button class="bg-[var(--accent-green-glow)] border border-[rgba(52,211,153,0.3)] hover:bg-[rgba(52,211,153,0.3)] text-[var(--accent-green)] px-4 py-2 rounded-xl font-bold text-sm w-full sm:w-auto transition-colors" onclick="document.getElementById('playerExcelInput').click()">📊 Upload Excel</button>
+        <button class="bg-[var(--surface-hover)] border border-[var(--border)] hover:bg-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-main)] px-4 py-2 rounded-xl font-bold text-sm w-full sm:w-auto transition-colors" onclick="downloadPlayerExcelTemplate()">📥 Excel Template</button>
         <button class="bg-transparent border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-muted)] px-4 py-2 rounded-xl font-bold text-sm w-full sm:w-auto transition-colors" onclick="goToScreen(2)">← Back</button>
         <button class="bg-[var(--text-main)] hover:bg-gray-200 text-black px-4 py-2 rounded-xl font-bold text-sm w-full sm:w-auto transition-colors ml-auto" onclick="saveAllPlayers()">💾 Save Players →</button>
       </div>
@@ -488,6 +492,8 @@
                   <th class="p-3 border-b border-[var(--border)]">Sr.no</th>
                   <th class="p-3 border-b border-[var(--border)]">Photo</th>
                   <th class="p-3 border-b border-[var(--border)]">Name</th>
+                  <th id="thRole" class="p-3 border-b border-[var(--border)] hidden">Role</th>
+                  <th id="thAge" class="p-3 border-b border-[var(--border)] hidden">Age</th>
                   <th class="p-3 border-b border-[var(--border)]">City</th>
                   <th class="p-3 border-b border-[var(--border)]">Batting</th>
                   <th class="p-3 border-b border-[var(--border)]">Bowling</th>
@@ -712,6 +718,9 @@ function savePlayerDrafts() {
   const data = cards.map(c => ({
     name: c.querySelector(".p-name")?.value || "",
     city: c.querySelector(".p-city")?.value || "",
+    role: c.querySelector(".p-role")?.value || "",
+    age: c.querySelector(".p-age")?.value || "",
+    phone: c.querySelector(".p-phone")?.value || "",
     batting: c.querySelector(".p-batting")?.value || "Right-Handed",
     bowling: c.querySelector(".p-bowling")?.value || "Right-Arm Bowler",
     isCaptain: c.querySelector(".p-captain") ? c.querySelector(".p-captain").checked : false,
@@ -771,6 +780,9 @@ async function restorePlayerDrafts() {
       drafts = state.players.map(p => ({
         name: p.name || "",
         city: p.city || "",
+        role: p.role || "",
+        age: p.age || "",
+        phone: p.phone || "",
         batting: p.batting || "Right-Handed",
         bowling: p.bowling || "Right-Arm Bowler",
         isCaptain: !!p.isCaptain,
@@ -781,6 +793,103 @@ async function restorePlayerDrafts() {
   renderAllPlayerForms(drafts);
 }
 // ===== END AUTO-SAVE DRAFTS & AUTO-RENDER LOGIC =====
+
+// ===== EXCEL PLAYER IMPORT & TEMPLATE =====
+function normalizeRole(val) {
+  const v = String(val || "").trim().toLowerCase();
+  if (!v) return "";
+  if (v.includes("all")) return "All-rounder";
+  if (v.includes("bowl")) return "Bowler";
+  if (v.includes("bat")) return "Batsman";
+  return "";
+}
+
+function normalizeBatting(val) {
+  const v = String(val || "").trim().toLowerCase();
+  if (v.includes("left") || v === "lhb") return "Left-Handed";
+  if (v.includes("right") || v === "rhb") return "Right-Handed";
+  return "Right-Handed";
+}
+
+function normalizeBowling(val) {
+  const v = String(val || "").trim().toLowerCase();
+  if (v === "none" || v === "no" || v === "n/a" || v === "-") return "None";
+  if (v.includes("left")) return "Left-Arm Bowler";
+  if (v.includes("right")) return "Right-Arm Bowler";
+  return "Right-Arm Bowler";
+}
+
+function getRowVal(row, keys) {
+  for (const k of Object.keys(row)) {
+    const norm = k.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (keys.includes(norm)) return String(row[k] ?? "").trim();
+  }
+  return "";
+}
+
+async function importPlayersFromExcel(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  if (!window.XLSX) {
+    input.value = "";
+    return showToast("Excel library is still loading. Try again.");
+  }
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+    const parsed = rawRows
+      .map(row => {
+        const name = getRowVal(row, ["name", "playername", "player", "fullname"]);
+        const city = getRowVal(row, ["city", "town", "location"]);
+        const role = normalizeRole(getRowVal(row, ["role", "playerrole", "category"]));
+        const ageRaw = getRowVal(row, ["age"]);
+        const age = ageRaw && !isNaN(Number(ageRaw)) && Number(ageRaw) > 0 ? String(Math.floor(Number(ageRaw))) : "";
+        const phone = getRowVal(row, ["phone", "phonenumber", "mobile", "mobilenumber", "contact", "contactnumber"]);
+        const batting = normalizeBatting(getRowVal(row, ["batting", "battinghand", "battingstyle"]));
+        const bowling = normalizeBowling(getRowVal(row, ["bowling", "bowlingstyle", "bowlingarm"]));
+        const imageUrl = getRowVal(row, ["photourl", "imageurl", "photo", "image"]);
+        const capRaw = getRowVal(row, ["captain", "iscaptain"]).toLowerCase();
+        const isCaptain = ["yes", "true", "1", "y"].includes(capRaw);
+        return { name, city, role, age, phone, batting, bowling, imageUrl, isCaptain };
+      })
+      .filter(p => p.name || p.city || p.role || p.age || p.phone);
+
+    if (!parsed.length) {
+      input.value = "";
+      return showToast("No valid player rows found in Excel file.");
+    }
+
+    const limit = Number(state.settings?.numPlayers || parsed.length);
+    const sliced = parsed.slice(0, limit);
+    renderAllPlayerForms(sliced);
+    savePlayerDrafts();
+
+    if (parsed.length > limit) {
+      showToast(`Imported first ${limit} of ${parsed.length} players`, false);
+    } else {
+      showToast(`Imported ${sliced.length} players from Excel`, false);
+    }
+  } catch (err) {
+    showToast("Excel import failed: " + err.message);
+  } finally {
+    input.value = "";
+  }
+}
+
+function downloadPlayerExcelTemplate() {
+  if (!window.XLSX) return showToast("Excel library is still loading. Try again.");
+  const headers = ["Name", "City", "Role", "Age", "Phone", "Batting", "Bowling", "Photo URL"];
+  if (state.settings?.spplMode) headers.push("Captain");
+  const ws = XLSX.utils.aoa_to_sheet([headers]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Players");
+  XLSX.writeFile(wb, "auctify_players_template.xlsx");
+}
+// ===== END EXCEL PLAYER IMPORT & TEMPLATE =====
 
 // ===== CUSTOM SEARCHABLE DROPDOWN LOGIC (NO PLACEHOLDERS) =====
 function makeSearchable(selectNode) {
@@ -1438,6 +1547,20 @@ function createPlayerFormCard(index, data = {}) {
         <label class="text-[11px] text-[var(--text-muted)] font-bold uppercase tracking-wider">City</label>
         <input type="text" class="p-city bg-[var(--bg)] border border-[var(--border)] text-[var(--text-main)] p-3 rounded-xl outline-none focus:border-[var(--accent-blue)] transition-all font-medium">
       </div>
+      <div class="flex flex-col gap-2">
+        <label class="text-[11px] text-[var(--text-muted)] font-bold uppercase tracking-wider">Role</label>
+        <select class="p-role bg-[var(--bg)] border border-[var(--border)] text-[var(--text-main)] p-3 rounded-xl outline-none focus:border-[var(--accent-blue)] appearance-none font-medium">
+          <option value="">Select</option><option>Batsman</option><option>Bowler</option><option>All-rounder</option>
+        </select>
+      </div>
+      <div class="flex flex-col gap-2">
+        <label class="text-[11px] text-[var(--text-muted)] font-bold uppercase tracking-wider">Age</label>
+        <input type="number" min="1" class="p-age bg-[var(--bg)] border border-[var(--border)] text-[var(--text-main)] p-3 rounded-xl outline-none focus:border-[var(--accent-blue)] transition-all font-medium">
+      </div>
+      <div class="flex flex-col gap-2 col-span-1 sm:col-span-2">
+        <label class="text-[11px] text-[var(--text-muted)] font-bold uppercase tracking-wider">Phone Number</label>
+        <input type="tel" class="p-phone bg-[var(--bg)] border border-[var(--border)] text-[var(--text-main)] p-3 rounded-xl outline-none focus:border-[var(--accent-blue)] transition-all font-medium">
+      </div>
       <div class="flex flex-col gap-2 col-span-1 sm:col-span-2">
         <label class="text-[11px] text-[var(--text-muted)] font-bold uppercase tracking-wider">Player Photo</label>
         <input type="file" class="p-photo block w-full text-xs font-medium text-[var(--text-faint)] file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[var(--surface-hover)] file:text-[var(--text-main)] hover:file:bg-[var(--border)] cursor-pointer bg-[var(--bg)] border border-[var(--border)] p-2 rounded-xl" accept="image/*">
@@ -1478,6 +1601,9 @@ function createPlayerFormCard(index, data = {}) {
   `;
   const nameInput = div.querySelector(".p-name");
   const cityInput = div.querySelector(".p-city");
+  const roleSelect = div.querySelector(".p-role");
+  const ageInput = div.querySelector(".p-age");
+  const phoneInput = div.querySelector(".p-phone");
   const battingSelect = div.querySelector(".p-batting");
   const bowlingSelect = div.querySelector(".p-bowling");
   const captainCheck = div.querySelector(".p-captain");
@@ -1486,12 +1612,18 @@ function createPlayerFormCard(index, data = {}) {
 
   if (data.name) nameInput.value = data.name;
   if (data.city) cityInput.value = data.city;
+  if (data.role) roleSelect.value = data.role;
+  if (data.age !== undefined && data.age !== "") ageInput.value = data.age;
+  if (data.phone) phoneInput.value = data.phone;
   if (data.batting) battingSelect.value = data.batting;
   if (data.bowling) bowlingSelect.value = data.bowling;
   if (captainCheck && data.isCaptain) captainCheck.checked = true;
 
   nameInput.addEventListener("input", () => { savePlayerDrafts(); renderPlayerProgress(); });
   cityInput.addEventListener("input", () => { savePlayerDrafts(); renderPlayerProgress(); });
+  roleSelect.addEventListener("change", savePlayerDrafts);
+  ageInput.addEventListener("input", savePlayerDrafts);
+  phoneInput.addEventListener("input", savePlayerDrafts);
   battingSelect.addEventListener("change", () => { savePlayerDrafts(); renderPlayerProgress(); });
   bowlingSelect.addEventListener("change", () => { savePlayerDrafts(); renderPlayerProgress(); });
   if (captainCheck) captainCheck.addEventListener("change", savePlayerDrafts);
@@ -1531,6 +1663,7 @@ function createPlayerFormCard(index, data = {}) {
     savePlayerDrafts();
   });
 
+  makeSearchable(roleSelect);
   makeSearchable(battingSelect);
   makeSearchable(bowlingSelect);
 
@@ -1711,7 +1844,7 @@ async function saveAllPlayers() {
     const city = card.querySelector(".p-city").value.trim();
     const batting = card.querySelector(".p-batting").value;
     const bowling = card.querySelector(".p-bowling").value;
-    if (!name || !city || !batting || !bowling) return showToast("Fill all details for every player.");
+    if (!name || !city || !batting || !bowling) return showToast("Fill all required details for every player.");
   }
 
   isBatchUploading = true;
@@ -1729,6 +1862,9 @@ async function saveAllPlayers() {
       const card = cards[i];
       const name = card.querySelector(".p-name").value.trim();
       const city = card.querySelector(".p-city").value.trim();
+      const role = card.querySelector(".p-role")?.value || "";
+      const age = card.querySelector(".p-age")?.value.trim() || "";
+      const phone = card.querySelector(".p-phone")?.value.trim() || "";
       const batting = card.querySelector(".p-batting").value;
       const bowling = card.querySelector(".p-bowling").value;
       const isCaptain = isSppl ? card.querySelector(".p-captain")?.checked : false;
@@ -1754,7 +1890,7 @@ async function saveAllPlayers() {
       }
 
       payloads.push({
-        name, city, batting, bowling, imageUrl, basePrice: Number(state.settings.basePrice),
+        name, city, role, age, phone, batting, bowling, imageUrl, basePrice: Number(state.settings.basePrice),
         status: "Pending", soldToTeamId: "", soldToTeamName: "", soldPrice: 0,
         isIconPlayer: false, isChitPlayer: false, isCaptain: isCaptain, 
         auctionRound: 1, reauctionCount: 0, createdAt: Date.now()
@@ -2023,7 +2159,13 @@ function renderTeamsDashboard() {
 
 function renderPlayersTable() {
   $("playerTableBadge").textContent = state.players.length;
-  if (!state.players.length) return $("playersTableBody").innerHTML = `<tr><td colspan="10" class="text-center py-6 text-[var(--text-faint)] text-xs font-semibold uppercase tracking-wider">No players.</td></tr>`;
+  const hasRole = state.players.some(p => p.role);
+  const hasAge = state.players.some(p => p.age);
+  $("thRole")?.classList.toggle("hidden", !hasRole);
+  $("thAge")?.classList.toggle("hidden", !hasAge);
+  const colCount = 10 + (hasRole ? 1 : 0) + (hasAge ? 1 : 0);
+
+  if (!state.players.length) return $("playersTableBody").innerHTML = `<tr><td colspan="${colCount}" class="text-center py-6 text-[var(--text-faint)] text-xs font-semibold uppercase tracking-wider">No players.</td></tr>`;
 
   const sorted = [...state.players].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
   let html = "";
@@ -2044,6 +2186,8 @@ function renderPlayersTable() {
         <td class="p-3 text-center text-[var(--text-faint)] font-bold">${i + 1}</td>
         <td class="p-3"><img class="w-8 h-8 rounded-full object-cover bg-[var(--surface)] border border-[var(--border)]" src="${p.imageUrl || placeholderImg("P")}" alt="Photo" loading="lazy" decoding="async"></td>
         <td class="p-3 whitespace-nowrap text-[var(--text-main)] font-bold">${tags}${escapeHtml(p.name)}</td>
+        ${hasRole ? `<td class="p-3 text-[var(--text-muted)]">${p.role ? escapeHtml(p.role) : ""}</td>` : ""}
+        ${hasAge ? `<td class="p-3 text-[var(--text-muted)]">${p.age ? escapeHtml(p.age) : ""}</td>` : ""}
         <td class="p-3 text-[var(--text-muted)]">${escapeHtml(p.city || "—")}</td>
         <td class="p-3 text-[var(--text-muted)]">${escapeHtml(p.batting || "—")}</td>
         <td class="p-3 text-[var(--text-muted)]">${escapeHtml(p.bowling || "—")}</td>
@@ -2160,6 +2304,8 @@ function renderCurrentPlayer() {
         ${player.isChitPlayer && state.settings.chitPlayerEnabled ? `<div class="inline-flex items-center gap-2 bg-[var(--accent-gold-glow)] border border-[rgba(251,191,36,0.3)] text-[var(--accent-gold)] px-4 py-1.5 rounded-full font-bold text-xs mb-2 shadow-sm uppercase tracking-wider">🎟️ Chit Discount: ${money(lumpSum)}</div>` : ''}
 
         <div class="flex flex-wrap justify-center gap-2 mb-3 mt-1">
+          ${player.role ? `<span class="bg-[var(--bg)] border border-[var(--border)] px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--accent-gold)] shadow-sm tracking-wider">⚡ ${escapeHtml(player.role)}</span>` : ''}
+          ${player.age ? `<span class="bg-[var(--bg)] border border-[var(--border)] px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--text-muted)] shadow-sm tracking-wider">🎂 ${escapeHtml(player.age)} yrs</span>` : ''}
           ${player.city ? `<span class="bg-[var(--bg)] border border-[var(--border)] px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--text-muted)] shadow-sm tracking-wider">📍 ${escapeHtml(player.city)}</span>` : ''}
           <span class="bg-[var(--bg)] border border-[var(--border)] px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--text-muted)] shadow-sm tracking-wider">🏏 ${escapeHtml(player.batting || "—")}</span>
           <span class="bg-[var(--bg)] border border-[var(--border)] px-3 py-1.5 rounded-lg text-xs font-bold text-[var(--text-muted)] shadow-sm tracking-wider">🥎 ${escapeHtml(player.bowling || "—")}</span>
@@ -2540,10 +2686,25 @@ function resetBid(baseAmt) { const inp = $("bidAmountInput"); if(inp) inp.value 
 
 function exportCSV() {
   if (!state.players.length) return showToast("No data to export.");
-  const rows = [["Sr.no.", "Name", "City", "Batting", "Bowling", "Status", "Team", "Bid Amount", "Bid Currency", "Round", "Is Chit", "Is Captain"]];
-  [...state.players].sort((a,b)=>a.auctionOrder-b.auctionOrder).forEach((p, i) => rows.push([
-    i + 1, p.name, p.city || "", p.batting || "", p.bowling || "", p.status, p.soldToTeamName || "", p.soldPrice || 0, p.isCaptain ? "Rupees (₹)" : "Points", p.auctionRound || 1, p.isChitPlayer ? "Yes" : "No", p.isCaptain ? "Yes" : "No"
-  ]));
+  const hasRole = state.players.some(p => p.role);
+  const hasAge = state.players.some(p => p.age);
+  const hasPhone = state.players.some(p => p.phone);
+
+  const header = ["Sr.no.", "Name"];
+  if (hasRole) header.push("Role");
+  if (hasAge) header.push("Age");
+  if (hasPhone) header.push("Phone");
+  header.push("City", "Batting", "Bowling", "Status", "Team", "Bid Amount", "Bid Currency", "Round", "Is Chit", "Is Captain");
+
+  const rows = [header];
+  [...state.players].sort((a,b)=>a.auctionOrder-b.auctionOrder).forEach((p, i) => {
+    const row = [i + 1, p.name];
+    if (hasRole) row.push(p.role || "");
+    if (hasAge) row.push(p.age || "");
+    if (hasPhone) row.push(p.phone || "");
+    row.push(p.city || "", p.batting || "", p.bowling || "", p.status, p.soldToTeamName || "", p.soldPrice || 0, p.isCaptain ? "Rupees (₹)" : "Points", p.auctionRound || 1, p.isChitPlayer ? "Yes" : "No", p.isCaptain ? "Yes" : "No");
+    rows.push(row);
+  });
   rows.push([]); rows.push(["Team", "Owner Name", "Purse Left (Points)", "Spent (Points)", "Captain Spent (Rupees)", "Bought", "Slots Left", "Max Bid (Points)", "Total Top Up"]);
   state.teams.forEach(t => { const s = getTeamStats(t); rows.push([t.name, t.ownerName || "", s.purseLeft, s.spent, s.captainSpent, s.slotsFilled, s.slotsLeft, s.maxBid, s.topUpAmount]); });
   
@@ -2565,6 +2726,32 @@ function exportPDF() {
   const marginX = 15;
   const contentWidth = pageWidth - marginX * 2; // 180mm
   const s = state.settings || {};
+
+  const hasRole = state.players.some(p => p.role);
+  const hasAge = state.players.some(p => p.age);
+  const hasPhone = state.players.some(p => p.phone);
+
+  const cols = [
+    { key: "sr", label: "Sr.no.", width: 12, style: { halign: "center", textColor: [113, 113, 122], fontStyle: "bold" } },
+    { key: "name", label: "Player Name", width: 42, style: { fontStyle: "bold", textColor: [24, 24, 27] } }
+  ];
+  if (hasRole) cols.push({ key: "role", label: "Role", width: 20, style: { textColor: [82, 82, 91] } });
+  if (hasAge) cols.push({ key: "age", label: "Age", width: 11, style: { halign: "center", textColor: [82, 82, 91] } });
+  if (hasPhone) cols.push({ key: "phone", label: "Phone", width: 24, style: { textColor: [82, 82, 91] } });
+  cols.push(
+    { key: "city", label: "City", width: 22, style: { textColor: [82, 82, 91] } },
+    { key: "batting", label: "Batting", width: 24, style: { textColor: [82, 82, 91] } },
+    { key: "bowling", label: "Bowling", width: 25, style: { textColor: [82, 82, 91] } },
+    { key: "bid", label: "Bid Amount", width: 24, style: { halign: "right", fontStyle: "bold", textColor: [24, 24, 27] } }
+  );
+
+  const baseSum = cols.reduce((acc, c) => acc + c.width, 0);
+  const scale = contentWidth / baseSum;
+  const columnStyles = {};
+  cols.forEach((c, idx) => {
+    columnStyles[idx] = { ...c.style, cellWidth: Number((c.width * scale).toFixed(2)) };
+  });
+  const tableFontSize = cols.length >= 8 ? 7.5 : 8.5;
 
   // Minimalist Top Accent Hairline
   pdf.setDrawColor(24, 24, 27);
@@ -2662,31 +2849,35 @@ function exportPDF() {
       const bidFormatted = p.isCaptain
         ? `Rs. ${Number(p.soldPrice || 0).toLocaleString("en-IN")}`
         : `${Number(p.soldPrice || 0).toLocaleString("en-IN")} PTS`;
-      return [
-        i + 1,
-        `${p.name || ""}${roleStr}`,
-        p.city || "—",
-        p.batting || "—",
-        p.bowling || "—",
-        bidFormatted
-      ];
+      const rowMap = {
+        sr: i + 1,
+        name: `${p.name || ""}${roleStr}`,
+        role: p.role || "",
+        age: p.age || "",
+        phone: p.phone || "",
+        city: p.city || "—",
+        batting: p.batting || "—",
+        bowling: p.bowling || "—",
+        bid: bidFormatted
+      };
+      return cols.map(c => rowMap[c.key]);
     });
 
     if (!rows.length) {
-      rows.push(["—", "No players acquired", "—", "—", "—", "—"]);
+      rows.push(cols.map((_, idx) => idx === 1 ? "No players acquired" : "—"));
     }
 
     pdf.autoTable({
       startY: currentY,
       margin: { left: marginX, right: marginX },
       tableWidth: contentWidth,
-      head: [["Sr.no.", "Player Name", "City", "Batting", "Bowling", "Bid Amount"]],
+      head: [cols.map(c => c.label)],
       body: rows,
       theme: "plain",
       styles: {
         font: "helvetica",
-        fontSize: 8.5,
-        cellPadding: { top: 2.8, bottom: 2.8, left: 2.5, right: 2.5 },
+        fontSize: tableFontSize,
+        cellPadding: { top: 2.8, bottom: 2.8, left: 2, right: 2 },
         lineWidth: 0,
         overflow: "linebreak"
       },
@@ -2694,23 +2885,16 @@ function exportPDF() {
         fillColor: [250, 250, 250],
         textColor: [82, 82, 91],
         fontStyle: "bold",
-        fontSize: 8
+        fontSize: tableFontSize - 0.5
       },
       bodyStyles: {
         textColor: [39, 39, 42]
       },
-      columnStyles: {
-        0: { cellWidth: 14, halign: "center", textColor: [113, 113, 122], fontStyle: "bold" },
-        1: { cellWidth: 52, fontStyle: "bold", textColor: [24, 24, 27] },
-        2: { cellWidth: 26, textColor: [82, 82, 91] },
-        3: { cellWidth: 30, textColor: [82, 82, 91] },
-        4: { cellWidth: 30, textColor: [82, 82, 91] },
-        5: { cellWidth: 28, halign: "right", fontStyle: "bold", textColor: [24, 24, 27] }
-      },
+      columnStyles,
       didParseCell: (data) => {
         if (data.section === "head") {
-          if (data.column.index === 0) data.cell.styles.halign = "center";
-          if (data.column.index === 5) data.cell.styles.halign = "right";
+          const halign = columnStyles[data.column.index]?.halign;
+          if (halign) data.cell.styles.halign = halign;
         }
       },
       didDrawCell: (data) => {
@@ -2849,6 +3033,8 @@ window.addTeamForm = addTeamForm;
 window.saveAllTeams = saveAllTeams;
 window.addPlayerForm = addPlayerForm;
 window.saveAllPlayers = saveAllPlayers;
+window.importPlayersFromExcel = importPlayersFromExcel;
+window.downloadPlayerExcelTemplate = downloadPlayerExcelTemplate;
 window.saveIconSelections = saveIconSelections;
 window.skipIconSelection = skipIconSelection;
 window.startAuction = startAuction;
